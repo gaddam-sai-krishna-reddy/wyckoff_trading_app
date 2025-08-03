@@ -1,0 +1,13 @@
+streamlit
+yfinance
+pandas
+numpy
+matplotlib
+langchain_community
+tiktoken
+langchain-openai
+langchainhub
+chromadb
+langchain
+sentence-transformers
+hf_xet
