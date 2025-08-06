@@ -4,6 +4,12 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 import torch
+import os
+from dotenv import load_dotenv
+from langchain.embeddings import OpenAIEmbeddings
+
+# Load environment variables
+load_dotenv()
 
 def get_optimal_device():
     """Detect and return the optimal device for model inference."""
@@ -21,13 +27,58 @@ def get_optimal_device():
         print("GPU not available. Using CPU for embedding generation.")
         return "cpu"
 
-def build_and_persist(csv_path: str, persist_dir: str = "chroma_db", collection_name: str = "qa_index"):
-    """
-    Load Q&A CSV, chunk, embed with all-MiniLM-L6-v2, and persist to Chroma on disk.
-    """
-    # Get optimal device for embeddings
+def get_collection_name():
+    """Get collection name based on model type."""
+    model_type = os.getenv("MODEL_TYPE", "google_flan")
+    base_name = "wyckoff_qa"
+    if model_type == "chatgpt":
+        return f"gpt_{base_name}"
+    elif model_type == "google_flan":
+        return f"flan_{base_name}"
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
+
+def get_embedding_model():
+    """Get appropriate embedding model based on model type."""
+    model_type = os.getenv("MODEL_TYPE", "google_flan")
     optimal_device = get_optimal_device()
-    print(f"Selected device for embeddings: {optimal_device}")
+    
+    if model_type == "chatgpt":
+        try:
+            openai_api_key = os.getenv("OPENAI_API_KEY")
+            if not openai_api_key:
+                raise ValueError("OPENAI_API_KEY is required for ChatGPT model")
+            print("Using OpenAI text-embedding-3-small for ChatGPT model")
+            return OpenAIEmbeddings(
+                model="text-embedding-3-small",
+                openai_api_key=openai_api_key
+            )
+        except ImportError:
+            print("Warning: OpenAI embeddings not available, falling back to HuggingFace")
+            return HuggingFaceEmbeddings(
+                model_name="all-MiniLM-L6-v2", 
+                model_kwargs={"device": optimal_device}
+            )
+    elif model_type == "google_flan":
+        print("Using HuggingFace all-MiniLM-L6-v2 for Google Flan model")
+        return HuggingFaceEmbeddings(
+            model_name="all-MiniLM-L6-v2", 
+            model_kwargs={"device": optimal_device}
+        )
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
+
+def build_and_persist(csv_path: str, persist_dir: str = "chroma_db"):
+    """
+    Load Q&A CSV, chunk, embed with model-specific embeddings, and persist to Chroma on disk.
+    """
+    # Get model-specific collection name and embedding model
+    collection_name = get_collection_name()
+    embedding_model = get_embedding_model()
+    
+    print(f"Building index for model type: {os.getenv('MODEL_TYPE', 'google_flan')}")
+    print(f"Collection name: {collection_name}")
+    print(f"Embedding model: {type(embedding_model).__name__}")
     
     # 1) Load CSV
     df = pd.read_csv(csv_path)
@@ -60,11 +111,11 @@ def build_and_persist(csv_path: str, persist_dir: str = "chroma_db", collection_
     splits = splitter.split_documents(docs)
     print(f"Created {len(splits)} chunks from {len(docs)} documents")
 
-    # 4) Build persistent Chroma index with optimal device
-    print(f"Building embeddings with device: {optimal_device}")
+    # 4) Build persistent Chroma index with model-specific embeddings
+    print(f"Building embeddings with {type(embedding_model).__name__}")
     vectorstore = Chroma.from_documents(
         documents=splits,
-        embedding=HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2", model_kwargs={"device": optimal_device}),
+        embedding=embedding_model,
         persist_directory=persist_dir,
         collection_name=collection_name,
     )
@@ -78,6 +129,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build and persist QA index from CSV into Chroma DB")
     parser.add_argument("--csv_path", default="data.csv", help="Path to your QA CSV file")
     parser.add_argument("--persist_dir", default="chroma_db", help="Directory for Chroma to persist the DB")
-    parser.add_argument("--collection_name", default="wyckoff_qa", help="Logical name for this collection")
     args = parser.parse_args()
-    build_and_persist(args.csv_path, args.persist_dir, args.collection_name)
+    build_and_persist(args.csv_path, args.persist_dir)
