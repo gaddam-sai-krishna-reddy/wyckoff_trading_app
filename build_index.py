@@ -3,31 +3,68 @@ from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
+import torch
+
+def get_optimal_device():
+    """Detect and return the optimal device for model inference."""
+    print(f"PyTorch version: {torch.__version__}")
+    print(f"CUDA available: {torch.cuda.is_available()}")
+    
+    if torch.cuda.is_available():
+        gpu_count = torch.cuda.device_count()
+        gpu_name = torch.cuda.get_device_name(0) if gpu_count > 0 else "Unknown"
+        print(f"GPU detected: {gpu_name}")
+        print(f"Number of GPUs: {gpu_count}")
+        print("Using CUDA for faster embedding generation.")
+        return "cuda"
+    else:
+        print("GPU not available. Using CPU for embedding generation.")
+        return "cpu"
 
 def build_and_persist(csv_path: str, persist_dir: str = "chroma_db", collection_name: str = "qa_index"):
     """
     Load Q&A CSV, chunk, embed with all-MiniLM-L6-v2, and persist to Chroma on disk.
     """
+    # Get optimal device for embeddings
+    optimal_device = get_optimal_device()
+    print(f"Selected device for embeddings: {optimal_device}")
+    
     # 1) Load CSV
     df = pd.read_csv(csv_path)
 
-    # 2) Create Documents
-    docs = [
-        Document(
-            page_content=row["Questions"],
-            metadata={"answer": row["Answers"]}
+    # 2) Create Documents with BETTER structure for RAG
+    docs = []
+    for _, row in df.iterrows():
+        question = row["Questions"]
+        answer = row["Answers"]
+        
+        # Create document with both Q&A in content for better retrieval
+        content = f"Question: {question}\nAnswer: {answer}"
+        
+        doc = Document(
+            page_content=content,
+            metadata={
+                "question": question,
+                "answer": answer,
+                "type": "qa_pair"
+            }
         )
-        for _, row in df.iterrows()
-    ]
+        docs.append(doc)
 
-    # 3) Chunk
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    # 3) Chunk with better parameters
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,  # Larger chunks for better context
+        chunk_overlap=200,  # More overlap for continuity
+        separators=["\n\n", "\n", ". ", " ", ""]  # Better splitting
+    )
     splits = splitter.split_documents(docs)
+    print(f"Created {len(splits)} chunks from {len(docs)} documents")
 
-    # 4) Build persistent Chroma index
+    # 4) Build persistent Chroma index with optimal device
+    print(f"Building embeddings with device: {optimal_device}")
     vectorstore = Chroma.from_documents(
         documents=splits,
-        embedding=HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2", model_kwargs={"device": "cpu"}),
+        embedding=HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2", model_kwargs={"device": optimal_device}),
         persist_directory=persist_dir,
         collection_name=collection_name,
     )

@@ -10,4 +10,6 @@ langchainhub
 chromadb
 langchain
 sentence-transformers
-hf_xet
+transformers
+torch
+langchain-core
