@@ -11,7 +11,7 @@ class ChatGPTModel(ModelInterface):
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.model_name = "gpt-4o-mini"  # Updated model name
+        self.model_name = "gpt-4o"  # Updated model name
         self.api_key = config.get("openai_api_key")
         self._validate_api_key()
         self._initialize_openai()
@@ -68,7 +68,7 @@ class ChatGPTModel(ModelInterface):
     
     def get_model_info(self) -> Dict[str, Any]:
         return {
-            "name": "OpenAI GPT-4o Mini",
+            "name": "OpenAI GPT-4o",
             "model": self.model_name,
             "capabilities": ["text-generation", "embeddings"],
             "config": self._get_generation_config()

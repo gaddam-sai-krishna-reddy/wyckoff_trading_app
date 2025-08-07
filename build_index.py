@@ -14,6 +14,9 @@ load_dotenv()
 
 def clean_text(text):
     """Clean and normalize text."""
+    # Handle NaN, None, or non-string values
+    if text is None or pd.isna(text):
+        return ""
     # Remove extra whitespace
     text = ' '.join(text.split())
     
