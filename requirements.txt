@@ -1,5 +1,31 @@
+# Core Framework
 streamlit
-yfinance
+langchain
+langchain-core
+langchain_community
+langchain-openai
+
+# Vector Database
+chromadb
+
+# Data Processing
 pandas
 numpy
+
+# Machine Learning & NLP
+transformers
+torch
+sentence-transformers
+tiktoken
+
+# OpenAI Integration
+openai
+
+# Environment Management
+python-dotenv
+
+# Visualization (if needed)
 matplotlib
+
+# Financial Data (if needed)
+yfinance
