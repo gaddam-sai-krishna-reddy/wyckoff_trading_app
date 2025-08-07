@@ -9,14 +9,16 @@ import os
 from model_interface import ModelInterface
 from model_factory import ModelFactory
 
-# Configure logging
+# Load environment variables first
+from dotenv import load_dotenv
+load_dotenv()
+
+# Configure logging after loading .env
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, log_level))
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-from dotenv import load_dotenv
-load_dotenv()
+logger.info(f"Log level: {log_level}")
 
 # Configuration
 class Config:
@@ -66,17 +68,15 @@ class Config:
         """Get model kwargs based on device."""
         return {"device": device}
 
-# Enhanced retrieval with better parameters
+# Enhanced retrieval with similarity search
 def get_enhanced_retriever(vectorstore, search_k: int = None):
-    """Create an enhanced retriever with better search parameters."""
+    """Create an enhanced retriever with similarity search."""
     # Use provided search_k or default to Config.SEARCH_K
     k_value = search_k if search_k is not None else Config.SEARCH_K
     
     return vectorstore.as_retriever(
-        search_type="similarity",  # or "mmr" for diversity
-        search_kwargs={
-            "k": k_value * 2,  # Get more candidates for better filtering (2x the final count)
-        }
+        search_type="similarity",
+        search_kwargs={"k": k_value * 2} # Get more candidates for better filtering (2x the final count)
     )
 
 def remove_duplicates(docs: list) -> list:

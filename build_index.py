@@ -7,9 +7,23 @@ import torch
 import os
 from dotenv import load_dotenv
 from langchain.embeddings import OpenAIEmbeddings
+import re
 
 # Load environment variables
 load_dotenv()
+
+def clean_text(text):
+    """Clean and normalize text."""
+    # Remove extra whitespace
+    text = ' '.join(text.split())
+    
+    text = text.replace('“', '"').replace('”', '"') # Convert smart quotes to regular quotes
+    text = text.replace('‘', "'").replace('’', "'")  # Convert smart single quotes to regular
+    
+    # Remove special characters but keep important ones
+    text = re.sub(r'[^\w\s\.\,\!\?\-\:\;\(\)]', '', text) # Remove special characters but keep important ones
+    
+    return text.strip()
 
 def get_optimal_device():
     """Detect and return the optimal device for model inference."""
@@ -82,12 +96,14 @@ def build_and_persist(csv_path: str, persist_dir: str = "chroma_db"):
     
     # 1) Load CSV
     df = pd.read_csv(csv_path)
+    print(f"Loaded {len(df)} Q&A pairs from {csv_path}")
 
     # 2) Create Documents with BETTER structure for RAG
     docs = []
     for _, row in df.iterrows():
-        question = row["Questions"]
-        answer = row["Answers"]
+        # Clean the text data
+        question = clean_text(row["Questions"])
+        answer = clean_text(row["Answers"])
         
         # Create document with both Q&A in content for better retrieval
         content = f"Question: {question}\nAnswer: {answer}"
@@ -101,6 +117,8 @@ def build_and_persist(csv_path: str, persist_dir: str = "chroma_db"):
             }
         )
         docs.append(doc)
+
+    print(f"Created {len(docs)} cleaned documents")
 
     # 3) Chunk with better parameters
     splitter = RecursiveCharacterTextSplitter(
