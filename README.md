@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Wyckoff Trading Chatbot
 
 A sophisticated RAG-based chatbot for Wyckoff trading methodology using an interface-based architecture that supports both Google Flan-T5 and ChatGPT models.
@@ -199,5 +200,3 @@ TOP_P=0.9
 ## 📄 **License**
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-
